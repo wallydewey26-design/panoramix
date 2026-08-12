@@ -65,18 +65,23 @@ def main():
     else:
         raise ValueError("Logging should be DEBUG/INFO/WARNING/ERROR.")
 
-    if "," in args.address_or_bytecode:
-        for addr in args.address_or_bytecode.split(","):
-            print_decompilation(addr, args)
-    elif args.profile:
+    addresses = (
+        args.address_or_bytecode.split(",")
+        if "," in args.address_or_bytecode
+        else [args.address_or_bytecode]
+    )
+
+    if args.profile:
         with cProfile.Profile() as profile:
             try:
-                print_decompilation(args.address_or_bytecode, args)
+                for addr in addresses:
+                    print_decompilation(addr, args)
             finally:
                 profile.dump_stats("panoramix.prof")
 
     else:
-        print_decompilation(args.address_or_bytecode, args)
+        for addr in addresses:
+            print_decompilation(addr, args)
 
 
 if __name__ == "__main__":
