@@ -197,7 +197,10 @@ class VM(EasyCopy):
         global node_count
         node_count = 0
 
-    def run(self, start, history={}, condition=None, re_run=False, stack=(), timeout=0):
+    def run(self, start, history=None, condition=None, re_run=False, stack=(), timeout=0):
+        if history is None:
+            history = {}
+
         time_start = time.monotonic()
 
         def should_quit():
@@ -420,6 +423,10 @@ class VM(EasyCopy):
             logger.debug("[%s] %s", i, op)
 
         if op == "jump":
+            if stack.len() < 1:
+                trace.append(("invalid", "stack_underflow", op))
+                return trace
+
             target = stack.pop()
 
             n = Node(
@@ -434,6 +441,10 @@ class VM(EasyCopy):
             return trace
 
         elif op == "jumpi":
+            if stack.len() < 2:
+                trace.append(("invalid", "stack_underflow", op))
+                return trace
+
             target = stack.pop()
             if_condition = simplify_bool(stack.pop())
 
@@ -492,6 +503,10 @@ class VM(EasyCopy):
             return trace
 
         elif op in ["return", "revert"]:
+            if stack.len() < 2:
+                trace.append(("invalid", "stack_underflow", op))
+                return trace
+
             p = stack.pop()
             n = stack.pop()
 
@@ -509,6 +524,10 @@ class VM(EasyCopy):
             return trace
 
         elif op == "selfdestruct":
+            if stack.len() < 1:
+                trace.append(("invalid", "stack_underflow", op))
+                return trace
+
             trace.append(
                 (
                     "selfdestruct",
@@ -578,6 +597,10 @@ class VM(EasyCopy):
             "smod",
             "sdiv",
         ]:
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
+
             stack.append(
                 arithmetic.eval(
                     (
@@ -592,21 +615,40 @@ class VM(EasyCopy):
             stack.append(param)
 
         elif op == "pop":
+            if stack.len() < 1:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             stack.pop()
 
         elif op == "dup":
+            if param <= 0 or stack.len() < param:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             stack.dup(param)
 
         elif op == "mul":
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             stack.append(mul_op(stack.pop(), stack.pop()))
 
         elif op == "or":
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             stack.append(or_op(stack.pop(), stack.pop()))
 
         elif op == "add":
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             stack.append(add_op(stack.pop(), stack.pop()))
 
         elif op == "sub":
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
+
             left = stack.pop()
             right = stack.pop()
 
@@ -616,9 +658,15 @@ class VM(EasyCopy):
                 stack.append(sub_op(left, right))
 
         elif op in ["mulmod", "addmod"]:
+            if stack.len() < 3:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             stack.append(("mulmod", stack.pop(), stack.pop(), stack.pop()))
 
         elif op == "shl":
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             off = stack.pop()
             exp = stack.pop()
             if all_concrete(off, exp):
@@ -627,6 +675,9 @@ class VM(EasyCopy):
                 stack.append(mask_op(exp, shl=off))
 
         elif op == "shr":
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             off = stack.pop()
             exp = stack.pop()
             if all_concrete(off, exp):
@@ -635,6 +686,9 @@ class VM(EasyCopy):
                 stack.append(mask_op(exp, offset=minus_op(off), shr=off))
 
         elif op == "sar":
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             off = stack.pop()
             exp = stack.pop()
             if all_concrete(off, exp):
@@ -654,9 +708,15 @@ class VM(EasyCopy):
                 stack.append(mask_op(exp, offset=minus_op(off), shr=off))
 
         elif op in ["not", "iszero"]:
+            if stack.len() < 1:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             stack.append((op, stack.pop()))
 
         elif op == "sha3":
+            if stack.len() < 2:
+                ret.append(("invalid", "stack_underflow", op))
+                return
             p = stack.pop()
             n = stack.pop()
             res = mem_load(p, n)
@@ -1015,6 +1075,10 @@ class VM(EasyCopy):
 
     def handle_call(self, op, trace):
         stack = self.stack
+
+        if stack.len() < 7:
+            trace.append(("invalid", "stack_underflow", op))
+            return
 
         gas = stack.pop()
         addr = stack.pop()

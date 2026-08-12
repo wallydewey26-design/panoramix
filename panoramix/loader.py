@@ -79,14 +79,23 @@ class Loader(EasyCopy):
         self.binary = None
 
     def load_addr(self, address):
-        assert address.isalnum()
+        address = address.strip()
+        if address.startswith("0x") or address.startswith("0X"):
+            address = address[2:]
+
+        if not address or not all(c in "0123456789abcdefABCDEF" for c in address):
+            raise ValueError(f"Invalid Ethereum address: {address}")
+
+        if len(address) != 40:
+            raise ValueError(f"Ethereum address must be 20 bytes (40 hex chars): {address}")
+
         address = address.lower()
 
         logger.info("Fetching code for %s...", address)
         from web3 import Web3
         from web3.auto import w3
 
-        code = w3.eth.get_code(Web3.to_checksum_address(address)).hex().removeprefix("0x")
+        code = w3.eth.get_code(Web3.to_checksum_address(f"0x{address}")).hex().removeprefix("0x")
         logger.debug("Code: %s", code)
 
         self.load_binary(code)
