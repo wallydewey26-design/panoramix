@@ -1,6 +1,7 @@
-[flake8]
+[flake8] auto formating and debuge
 ignore = E203, E266, W503, E741
 # Black can use its default max line length of 88 for reformatting. But
 # for strings, comments... We set a more lenient max length.
 max-line-length = 100
 update-oomph
+ 
